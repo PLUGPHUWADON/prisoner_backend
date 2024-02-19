@@ -18,17 +18,6 @@ app.use(express.urlencoded({extended:false}));
 app.use(express.json());
 app.use(session({secret:"mysession",resave:false,saveUninitialized:false}));
 
-//set file upload
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null,'./public/images');
-    },
-    filename: (req, file, cb) => {
-      cb(null,Date.now() + file.originalname);
-    }
-});
-const upload = multer({storage: storage});
-
 //set database
 const sequelize = new Sequelize('database', 'username', 'password', {
     host: 'localhost',
@@ -52,6 +41,10 @@ const user = sequelize.define("user",{
     },
     password:{
         type: Sequelize.STRING
+    },
+    role:{
+        type: Sequelize.STRING,
+        defaultValue: 'user'
     }
 });
 const product = sequelize.define("product",{
@@ -69,7 +62,7 @@ const product = sequelize.define("product",{
     productprice:{
         type: Sequelize.STRING
     },
-    imgfile:{
+    imgurl:{
         type: Sequelize.STRING
     }
 });
@@ -179,7 +172,7 @@ app.put("/updateuser/:id",(req,res) => {
             user.findAll().then(dataall => {
                 if (dataall) {
                     for (let i = 0 ; i < dataall.length ; i++) {
-                        if (req.body.phone == dataall[i].dataValues.phone && req.body.username == data[i].dataValues.username) {
+                        if (req.body.phone == dataall[i].dataValues.phone && req.body.phone != data.dataValues.phone) {
                             checksame = true;
                         }
                     }
@@ -224,14 +217,14 @@ app.get("/getallproduct",(req,res) => {
     });
 });
 
-app.post("/createproduct",upload.single("imgfile"),(req,res) => {
+app.post("/createproduct",(req,res) => {
     product.create({
         productname:req.body.productname,
         productcategory:req.body.productcategory,
         productprice:req.body.productprice,
-        imgfile:req.file.filename
+        imgurl:req.body.imgurl
     }).then(data => {
-        res.json(data);
+        console.log(req.body)
     }).catch(err => {
         res.status(500).send(err);
     });
@@ -375,6 +368,56 @@ app.post("/addoder",(req,res) => {
     });
 });
 
+app.get("/getallorder",(req,res) => {
+    order.findAll().then(data => {
+        product.findAll().then(data1 => {
+            user.findAll().then(data2 => {
+                let arr = [];
+                let products = [];
+
+                for (let i = 0 ; i < data.length ; i++) {
+                    let arremty = [];
+                    for (let j = 0 ; j < JSON.parse(data[i].dataValues.cartuser).length ; j++) {
+                        arremty[j] = JSON.parse(data[i].dataValues.cartuser)[j];
+                        arremty[j] = {name:arremty[j].id,amount:arremty[j].amount}
+                    }
+                    products.push(arremty);
+                }
+                for (let i = 0 ; i < data1.length ; i++) {
+                    for (let j = 0 ; j < products.length ; j++) {
+                        for (let k = 0 ; k < products[j].length ; k++) {
+                            if (data1[i].dataValues.productid == products[j][k].name) {
+                                products[j][k].name = data1[i].dataValues.productname;
+                            }
+                        }
+                    }
+                }
+                data.forEach((e,i) => {
+                    arr.push({orderid:e.dataValues.orderid,user:data2[i].dataValues.username,product:products[i]})
+                });
+                res.json(arr);
+            }).catch(err => {
+                res.status(500).send(err);
+            });
+        }).catch(err => {
+            res.status(500).send(err);
+        });
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+// get id user
+app.get("/getallcart/:id",(req,res) => {
+    cart.findOne({where:{userid:req.params.id}}).then(data => {
+        if (data) {
+            res.json(data);
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
 //connect server
 app.listen(port,() => {
     console.log("connect server");
@@ -384,6 +427,4 @@ app.listen(port,() => {
 //     - get ข้อมูลตะกร้าสินค่า
 //     - get ข้อมูล order
 //     - get ข้อมูลหมวดหมู่สินค้า
-//     - ลบรูปตอนกดลบสินค้าจาก admin
-//     - ลบรูปเดิมและเพิ่มรูปใหม่ตอนแก้ไขสินค้าจาก admin
 //     - check password ของ admin
