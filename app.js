@@ -371,47 +371,58 @@ app.post("/addoder",(req,res) => {
 
 app.get("/getallorder",(req,res) => {
     order.findAll().then(data => {
-        product.findAll().then(data1 => {
-            user.findAll().then(data2 => {
-                let arr = [];
-                let products = [];
-
-                for (let i = 0 ; i < data.length ; i++) {
-                    let arremty = [];
-                    for (let j = 0 ; j < JSON.parse(data[i].dataValues.cartuser).length ; j++) {
-                        arremty[j] = JSON.parse(data[i].dataValues.cartuser)[j];
-                        arremty[j] = {name:arremty[j].id,amount:arremty[j].amount}
-                    }
-                    products.push(arremty);
-                }
-                for (let i = 0 ; i < data1.length ; i++) {
-                    for (let j = 0 ; j < products.length ; j++) {
-                        for (let k = 0 ; k < products[j].length ; k++) {
-                            if (data1[i].dataValues.productid == products[j][k].name) {
-                                products[j][k].name = data1[i].dataValues.productname;
-                            }
-                        }
-                    }
-                }
-                data.forEach((e,i) => {
-                    arr.push({orderid:e.dataValues.orderid,user:data2[i].dataValues.username,product:products[i]})
-                });
-                res.json(arr);
-            }).catch(err => {
-                res.status(500).send(err);
-            });
-        }).catch(err => {
-            res.status(500).send(err);
-        });
+        if (data) {
+           res.json(data);
+        }
     }).catch(err => {
         res.status(500).send(err);
     });
 });
 
+// app.get("/getallorder",(req,res) => {
+//     order.findAll().then(data => {
+//         product.findAll().then(data1 => {
+//             user.findAll().then(data2 => {
+//                 console.log("t")
+//                 let arr = [];
+//                 let products = [];
+
+//                 for (let i = 0 ; i < data.length ; i++) {
+//                     let arremty = [];
+//                     for (let j = 0 ; j < JSON.parse(data[i].dataValues.cartuser).length ; j++) {
+//                         arremty[j] = JSON.parse(data[i].dataValues.cartuser)[j];
+//                         arremty[j] = {name:arremty[j].id,amount:arremty[j].amount}
+//                     }
+//                     products.push(arremty);
+//                 }
+//                 for (let i = 0 ; i < data1.length ; i++) {
+//                     for (let j = 0 ; j < products.length ; j++) {
+//                         for (let k = 0 ; k < products[j].length ; k++) {
+//                             if (data1[i].dataValues.productid == products[j][k].name) {
+//                                 products[j][k].name = data1[i].dataValues.productname;
+//                             }
+//                         }
+//                     }
+//                 }
+//                 data.forEach((e,i) => {
+//                     arr.push({orderid:e.dataValues.orderid,user:data2[i].dataValues.username,product:products[i]})
+//                 });
+//                 console.log(arr);
+//             }).catch(err => {
+//                 res.status(500).send(err);
+//             });
+//         }).catch(err => {
+//             res.status(500).send(err);
+//         });
+//     }).catch(err => {
+//         res.status(500).send(err);
+//     });
+// });
+
 app.get("/getorderuser/:id",(req,res) => {
     order.findAll({where:{userid:req.params.id}}).then(data => {
         if (data) {
-            console.log(data);
+            res.json(data);
         }
     }).catch(err => {
         res.status(500).send(err);
