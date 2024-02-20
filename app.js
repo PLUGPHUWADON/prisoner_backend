@@ -5,6 +5,7 @@ const path = require("path");
 const multer = require("multer");
 const Sequelize = require('sequelize');
 const session = require('express-session');
+const { constants } = require("buffer");
 require('dotenv').config();
 
 //set environment variables
@@ -402,6 +403,16 @@ app.get("/getallorder",(req,res) => {
         }).catch(err => {
             res.status(500).send(err);
         });
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+app.get("/getorderuser/:id",(req,res) => {
+    order.findAll({where:{userid:req.params.id}}).then(data => {
+        if (data) {
+            console.log(data);
+        }
     }).catch(err => {
         res.status(500).send(err);
     });
