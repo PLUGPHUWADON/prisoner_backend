@@ -1,23 +1,30 @@
 const express = require("express");
 const app = express();
-const fs = require('fs');
-const path = require("path");
-const multer = require("multer");
 const Sequelize = require('sequelize');
 const session = require('express-session');
-const { constants } = require("buffer");
 require('dotenv').config();
 
 //set environment variables
-const port = process.env.PORT;
+const port = process.env.PORT || 5000;
 
 //set project
-app.set("views",path.join(__dirname,"/public/views"));
-app.set('view engine', 'ejs');
-app.use(express.static(path.join(__dirname,"/public")));
+// app.set("views",path.join(__dirname,"/public/views"));
+// app.set('view engine', 'ejs');
+// app.use(express.static(path.join(__dirname,"/public")));
 app.use(express.urlencoded({extended:false}));
 app.use(express.json());
 app.use(session({secret:"mysession",resave:false,saveUninitialized:false}));
+
+//set file upload
+// const storage = multer.diskStorage({
+//     destination: function (req, file, cb) {
+//       cb(null, './public/images');
+//     },
+//     filename: function (req, file, cb) {
+//       cb(null,Date.now() + file.originalname);
+//     }
+// });
+// const upload = multer({ storage: storage });
 
 //set database
 const sequelize = new Sequelize('database', 'username', 'password', {
@@ -114,7 +121,7 @@ app.get("/",(req,res) => {
     res.render("login.ejs");
 });
 
-app.post("/login",(req,res) => {
+app.post("/login", (req,res) => {
     let checkpass = false;
     user.findAll().then(data => {
         data.forEach(e => {
@@ -122,7 +129,8 @@ app.post("/login",(req,res) => {
                 checkpass = true;
                 req.session.userlogin = e.dataValues.userid;
                 console.log(req.session.userlogin);
-                res.render("cart.ejs")
+                // res all data and statuslogin
+                res.json({statuslogin:true, data:e.dataValues});
             }
         });
         if (checkpass == false) {
@@ -136,30 +144,39 @@ app.post("/login",(req,res) => {
 app.post("/createuser",(req,res) => {
     let checksame = false;
     user.findAll().then(data => {
-        if (data.length != 0) {
+        if (data) {
             for (let i = 0 ; i < data.length ; i++) {
-                if (req.body.phone == data[i].dataValues.phone && req.body.username == data[i].dataValues.username) {
+                if (req.body.phone == data[i].dataValues.phone) {
                     checksame = true;
                 }
             }
-
             if (!checksame) {
-                user.create(req.body).then(() => {
+                user.create(req.body).then(data => {
                     res.json(data);
                 }).catch(err => {
                     res.status(500).send(err);
                 });
             }
             else{
-                res.json({});
+                res.json({registerfailed:true});
             }
         }
         else{
-            user.create(req.body).then(() => {
-                res.json(data);
-            }).catch(err => {
-                res.status(500).send(err);
-            });
+            res.status(404).send("user not found");
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+// get user by id
+app.get("/getuser/:id",(req,res) => {
+    user.findByPk(req.params.id).then(data => {
+        if (data) {
+            res.json(data);
+        }
+        else{
+            res.status(404).send("user not found");
         }
     }).catch(err => {
         res.status(500).send(err);
@@ -173,21 +190,23 @@ app.put("/updateuser/:id",(req,res) => {
             user.findAll().then(dataall => {
                 if (dataall) {
                     for (let i = 0 ; i < dataall.length ; i++) {
+                        // if phone is same
                         if (req.body.phone == dataall[i].dataValues.phone && req.body.phone != data.dataValues.phone) {
                             checksame = true;
                         }
                     }
-        
+                    
+                    console.log("same",  checksame);
                     if (!checksame) {
                         data.update(req.body).then(() => {
-                            console.log("1")
+                            console.log("1");
                             res.json(data);
                         }).catch(err => {
                             res.status(500).send(err);
                         });
                     }
                     else{
-                        res.json({});
+                        res.json({updatefailed:true});
                     }
                 }
                 else{
@@ -199,6 +218,58 @@ app.put("/updateuser/:id",(req,res) => {
         }
         else{
             res.status(404).send("user not found");
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+app.post("/forgotpassword",(req,res) => {
+    let username = req.body.username;
+    let phone = req.body.phone;
+    let checkforgot = false;
+
+    user.findAll().then(data => {
+        awaitfn();
+        async function awaitfn() {
+            await new Promise((resolve,reject) => {
+                for (let i = 0 ; i < data.length ; i++) {
+                    if (data[i].dataValues.username == username && data[i].dataValues.phone == phone) {
+                        checkforgot = true;
+                        user.findOne({where:{username:username,phone:phone}}).then(data2 => {
+                            res.json({checkforgot:true,userid:data2.dataValues.userid});
+                            resolve();
+                        }).catch(err => {
+                            res.status(500).send(err);
+                        });
+                    }
+                }
+                if (checkforgot == false) {
+                    resolve();
+                }
+            });
+            await new Promise((resolve,reject) => {
+                console.log("t")
+                if (checkforgot == false) {
+                    console.log("t")
+                    res.json({checkforgot:false});
+                }
+                resolve();
+            });
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+app.delete("/deleteuser/:id",(req,res) => {
+    user.findByPk(req.params.id).then(data => {
+        if (data) {
+            data.destroy().then(() => {
+                res.json({});
+            }).catch(err => {
+                res.status(500).send(err);
+            })
         }
     }).catch(err => {
         res.status(500).send(err);
@@ -218,6 +289,33 @@ app.get("/getallproduct",(req,res) => {
     });
 });
 
+app.get("/getproductbyid/:id",(req,res) => {
+    product.findByPk(req.params.id).then(data => {
+        if (data) {
+            res.json(data);
+        }
+        else{
+            res.status(404).send("product not found");
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
+app.get("/getproduct/:productcategory",(req,res) => {
+    console.log(req.params.productcategory);
+    product.findAll({where:{productcategory:req.params.productcategory}}).then(data => {
+        if (data) {
+            res.json(data);
+        }
+        else{
+            res.status(404).send("products not found");
+        }
+    }).catch(err => {
+        res.status(500).send(err);
+    });
+});
+
 app.post("/createproduct",(req,res) => {
     product.create({
         productname:req.body.productname,
@@ -225,7 +323,7 @@ app.post("/createproduct",(req,res) => {
         productprice:req.body.productprice,
         imgurl:req.body.imgurl
     }).then(data => {
-        console.log(req.body)
+        res.json(data);
     }).catch(err => {
         res.status(500).send(err);
     });
@@ -238,6 +336,7 @@ app.put("/updateproduct/:id",(req,res) => {
                 res.json(data);
             }).catch(err => {
                 res.status(500).send(err);
+                console.log(err);
             });
         }
         else{
@@ -266,12 +365,12 @@ app.delete("/deleteproduct/:id",(req,res) => {
 });
 
 app.post("/addcart/:id",(req,res) => { // input by form html
-    console.log(req.session.userlogin)
+    console.log(req.params.id);
     cart.findOrCreate({ 
-        where:{userid:req.session.userlogin},
-        defaults:{userid:req.session.userlogin}}).then(data => {
+        where:{userid:req.body.userid},
+        defaults:{userid:req.body.userid}}).then(data => {
             if (data) {
-                cart.findOne({where:{userid:req.session.userlogin}}).then(data1 => {
+                cart.findOne({where:{userid:req.body.userid}}).then(data1 => {
                     if (data1) {
                         product.findByPk(req.params.id).then(data2 => {
                             if (data2) {
@@ -331,9 +430,9 @@ app.post("/addcart/:id",(req,res) => { // input by form html
      });
 });
 
-//** method
-app.post("/deletecart/:id",(req,res) => {
-    cart.findOne({where:{userid:req.session.userlogin}}).then(data => {
+// //** method
+app.post("/deletecart/:userid/:id",(req,res) => {
+    cart.findOne({where:{userid:req.params.userid}}).then(data => {
         if (data) {
             let product = JSON.parse(data.dataValues.cartuser);
             product.splice(product.findIndex(e => e.id == req.params.id),1);
@@ -348,11 +447,11 @@ app.post("/deletecart/:id",(req,res) => {
     });
 });
 
-app.post("/addoder",(req,res) => {
-    cart.findOne({where:{userid:req.session.userlogin}}).then(data => {
+app.post("/addorder/:userid",(req,res) => {
+    cart.findOne({where:{userid:req.params.userid}}).then(data => {
         if (data) {
             order.create({
-                userid:req.session.userlogin,
+                userid:req.params.userid,
                 cartuser:data.dataValues.cartuser,
                 prisoner:req.body.prisonername}).then(() => {
                 data.destroy().then(() => {
@@ -379,48 +478,8 @@ app.get("/getallorder",(req,res) => {
     });
 });
 
-// app.get("/getallorder",(req,res) => {
-//     order.findAll().then(data => {
-//         product.findAll().then(data1 => {
-//             user.findAll().then(data2 => {
-//                 console.log("t")
-//                 let arr = [];
-//                 let products = [];
-
-//                 for (let i = 0 ; i < data.length ; i++) {
-//                     let arremty = [];
-//                     for (let j = 0 ; j < JSON.parse(data[i].dataValues.cartuser).length ; j++) {
-//                         arremty[j] = JSON.parse(data[i].dataValues.cartuser)[j];
-//                         arremty[j] = {name:arremty[j].id,amount:arremty[j].amount}
-//                     }
-//                     products.push(arremty);
-//                 }
-//                 for (let i = 0 ; i < data1.length ; i++) {
-//                     for (let j = 0 ; j < products.length ; j++) {
-//                         for (let k = 0 ; k < products[j].length ; k++) {
-//                             if (data1[i].dataValues.productid == products[j][k].name) {
-//                                 products[j][k].name = data1[i].dataValues.productname;
-//                             }
-//                         }
-//                     }
-//                 }
-//                 data.forEach((e,i) => {
-//                     arr.push({orderid:e.dataValues.orderid,user:data2[i].dataValues.username,product:products[i]})
-//                 });
-//                 console.log(arr);
-//             }).catch(err => {
-//                 res.status(500).send(err);
-//             });
-//         }).catch(err => {
-//             res.status(500).send(err);
-//         });
-//     }).catch(err => {
-//         res.status(500).send(err);
-//     });
-// });
-
-app.get("/getbyorder/:id",(req,res) => {
-    order.findByPk(req.params.id).then(data => {
+app.get("/getorderuser/:id",(req,res) => {
+    order.findAll({where:{userid:req.params.id}}).then(data => {
         if (data) {
             res.json(data);
         }
@@ -429,46 +488,8 @@ app.get("/getbyorder/:id",(req,res) => {
     });
 });
 
-app.post("/forgotpassword",(req,res) => {
-    let username = req.body.username;
-    let phone = req.body.phone;
-    let checkforgot = false;
-
-    user.findAll().then(data => {
-        awaitfn();
-        async function awaitfn() {
-            await new Promise((resolve,reject) => {
-                for (let i = 0 ; i < data.length ; i++) {
-                    if (data[i].dataValues.username == username && data[i].dataValues.phone == phone) {
-                        checkforgot = true;
-                        user.findOne({where:{username:username,phone:phone}}).then(data2 => {
-                            res.json({checkforgot:true});
-                            resolve();
-                        }).catch(err => {
-                            res.status(500).send(err);
-                        });
-                    }
-                }
-                if (checkforgot == false) {
-                    resolve();
-                }
-            });
-            await new Promise((resolve,reject) => {
-                console.log("t")
-                if (checkforgot == false) {
-                    console.log("t")
-                    res.json({checkforgot:false});
-                }
-                resolve();
-            });
-        }
-    }).catch(err => {
-        res.status(500).send(err);
-    });
-});
-
-app.get("/getorderuser/:id",(req,res) => {
-    order.findAll({where:{userid:req.params.id}}).then(data => {
+app.get("/getbyorder/:id",(req,res) => {
+    order.findByPk(req.params.id).then(data => {
         if (data) {
             res.json(data);
         }
@@ -481,7 +502,9 @@ app.get("/getorderuser/:id",(req,res) => {
 app.get("/getallcart/:id",(req,res) => {
     cart.findOne({where:{userid:req.params.id}}).then(data => {
         if (data) {
-            res.json(data);
+            res.json({cartuser:JSON.parse(data.dataValues.cartuser)});
+        } else {
+            res.json(null);
         }
     }).catch(err => {
         res.status(500).send(err);
@@ -492,9 +515,3 @@ app.get("/getallcart/:id",(req,res) => {
 app.listen(port,() => {
     console.log("connect server");
 });
-
-// backend เหลือ
-//     - get ข้อมูลตะกร้าสินค่า
-//     - get ข้อมูล order
-//     - get ข้อมูลหมวดหมู่สินค้า
-//     - check password ของ admin
