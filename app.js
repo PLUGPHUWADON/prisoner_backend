@@ -13,7 +13,7 @@ const port = process.env.PORT || 5000;
 // app.use(express.static(path.join(__dirname,"/public")));
 app.use(express.urlencoded({extended:false}));
 app.use(express.json());
-app.use(session({secret:"mysession",resave:false,saveUninitialized:false}));
+app.use(session({secret:"mysession",resave:false,saveUninitialized:true}));
 
 //set file upload
 // const storage = multer.diskStorage({
